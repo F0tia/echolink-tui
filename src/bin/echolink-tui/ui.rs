@@ -1,5 +1,6 @@
-use crate::app::{App, Filter, LogKind, Mode};
-use crate::qso::{State, TX_LIMIT};
+use crate::app::{App, Mode};
+use echolink::qso::{State, TX_LIMIT};
+use echolink::session::{Filter, LogKind};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style, Stylize};
@@ -20,23 +21,23 @@ pub fn draw(f: &mut Frame, app: &mut App) {
 }
 
 fn header(f: &mut Frame, app: &App, area: Rect) {
-    let dir_color = if app.dir_ok { Color::Green } else { Color::Yellow };
+    let dir_color = if app.s.dir_ok { Color::Green } else { Color::Yellow };
     let mut spans = vec![
         Span::styled(" EchoLink ", Style::new().fg(Color::Black).bg(ACCENT).bold()),
-        Span::raw(format!("  {}  ", app.cfg.callsign)),
-        Span::styled(format!("● {}", app.dir_status), Style::new().fg(dir_color)),
+        Span::raw(format!("  {}  ", app.s.cfg.callsign)),
+        Span::styled(format!("● {}", app.s.dir_status), Style::new().fg(dir_color)),
         Span::raw("   "),
     ];
-    spans.push(match &app.state {
+    spans.push(match &app.s.state {
         State::Idle => Span::styled("Not connected", Style::new().dim()),
         State::Connecting { label, .. } => Span::styled(format!("Calling {label}…"), Style::new().fg(Color::Yellow)),
         State::Connected { callsign, .. } => Span::styled(format!("Connected: {callsign}"), Style::new().fg(Color::Green).bold()),
     });
-    if app.receiving {
+    if app.s.receiving {
         spans.push(Span::raw("  "));
         spans.push(Span::styled(" RX ", Style::new().fg(Color::Black).bg(Color::Green).bold()));
     }
-    if let Some(t) = app.tx_since {
+    if let Some(t) = app.s.tx_since {
         let s = t.elapsed().as_secs();
         spans.push(Span::raw("  "));
         spans.push(Span::styled(format!(" TX {}:{:02} ", s / 60, s % 60), Style::new().fg(Color::White).bg(Color::Red).bold()));
@@ -54,11 +55,11 @@ fn stations(f: &mut Frame, app: &mut App, area: Rect) {
     if !app.search.is_empty() {
         tabs.push(Span::styled(format!(" /{} ", app.search), Style::new().fg(Color::Yellow)));
     }
-    let title = format!(" Stations {}/{} ", app.visible.len(), app.stations.len());
+    let title = format!(" Stations {}/{} ", app.visible.len(), app.s.stations.len());
     let block = Block::new().borders(Borders::ALL).title(title).title_bottom(Line::from(tabs));
 
     let rows = app.visible.iter().map(|&i| {
-        let s = &app.stations[i];
+        let s = &app.s.stations[i];
         let busy = if s.busy { Span::styled("busy", Style::new().fg(Color::Yellow)) } else { Span::raw("") };
         Row::new(vec![
             Cell::from(s.callsign.clone()).style(Style::new().bold()),
@@ -72,8 +73,8 @@ fn stations(f: &mut Frame, app: &mut App, area: Rect) {
         .row_highlight_style(Style::new().bg(Color::DarkGray).add_modifier(Modifier::BOLD))
         .highlight_symbol("▶ ")
         .block(block);
-    if app.stations.is_empty() {
-        let msg = Paragraph::new(if app.dir_ok { "Loading station list…" } else { "Waiting for the directory…" })
+    if app.s.stations.is_empty() {
+        let msg = Paragraph::new(if app.s.dir_ok { "Loading station list…" } else { "Waiting for the directory…" })
             .style(Style::new().dim())
             .block(Block::new().borders(Borders::ALL).title(" Stations "));
         f.render_widget(msg, area);
@@ -86,10 +87,10 @@ fn qso(f: &mut Frame, app: &App, area: Rect) {
     let [info, log, meters] =
         Layout::vertical([Constraint::Length(8), Constraint::Min(4), Constraint::Length(4)]).areas(area);
 
-    let (title, body) = match &app.state {
+    let (title, body) = match &app.s.state {
         State::Connected { callsign, name, ip } => (
             format!(" {callsign} "),
-            if app.remote_info.is_empty() { format!("{name}\n{ip}") } else { app.remote_info.clone() },
+            if app.s.remote_info.is_empty() { format!("{name}\n{ip}") } else { app.s.remote_info.clone() },
         ),
         State::Connecting { label, .. } => (" Calling ".into(), format!("Waiting for {label} to answer…")),
         State::Idle => (
@@ -106,6 +107,7 @@ fn qso(f: &mut Frame, app: &App, area: Rect) {
 
     let height = log.height.saturating_sub(2) as usize;
     let lines: Vec<Line> = app
+        .s
         .log
         .iter()
         .rev()
@@ -121,8 +123,8 @@ fn qso(f: &mut Frame, app: &App, area: Rect) {
         log,
     );
 
-    let rx = app.audio.shared.rx_level.load(Ordering::Relaxed);
-    let tx = app.audio.shared.tx_level.load(Ordering::Relaxed);
+    let rx = app.s.audio.shared.rx_level.load(Ordering::Relaxed);
+    let tx = app.s.audio.shared.tx_level.load(Ordering::Relaxed);
     let block = Block::new().borders(Borders::ALL).title(" Audio ");
     let inner = block.inner(meters);
     f.render_widget(block, meters);
@@ -135,7 +137,7 @@ fn qso(f: &mut Frame, app: &App, area: Rect) {
             .use_unicode(true)
     };
     f.render_widget(gauge("RX", rx, Color::Green), r);
-    let tx_color = if app.tx_since.is_some_and(|t| t.elapsed() > TX_LIMIT - std::time::Duration::from_secs(30)) {
+    let tx_color = if app.s.tx_since.is_some_and(|t| t.elapsed() > TX_LIMIT - std::time::Duration::from_secs(30)) {
         Color::Red
     } else {
         Color::LightRed

@@ -3,7 +3,7 @@
 # namespaces joined by a veth link (no root needed, nothing touches the host).
 set -e
 cd "$(dirname "$0")/.."
-bin=$(cargo test --no-run --message-format=json 2>/dev/null | sed -n 's/.*"executable":"\([^"]*\)".*/\1/p' | head -1)
+bin=$(cargo test --lib --no-run --message-format=json 2>/dev/null | sed -n 's/.*"executable":"\([^"]*\)".*/\1/p' | head -1)
 exec unshare -rn --fork sh -c '
   unshare -n sleep 60 & B=$!; sleep 0.3
   ip link add v0 type veth peer name v1 netns $B

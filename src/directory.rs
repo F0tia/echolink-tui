@@ -114,10 +114,23 @@ pub fn login(net: &Net, servers: &[String], callsign: &str, password: &str, desc
     let raw = exchange(net, servers, &cmd, &|r| r.len() >= 2)?;
     let reply = String::from_utf8_lossy(&raw);
     if !reply.starts_with("OK") {
-        bail!("directory refused login: {}", reply.trim());
+        return Err(Refused(reply.trim().to_string()).into());
     }
     Ok(())
 }
+
+/// The directory answered a login with something other than OK (bad
+/// password, unvalidated callsign, ...). Retrying soon won't help.
+#[derive(Debug)]
+pub struct Refused(pub String);
+
+impl std::fmt::Display for Refused {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "directory refused login: {}", self.0)
+    }
+}
+
+impl std::error::Error for Refused {}
 
 /// Fetch the station list, as AllStarLink's chan_echolink does ("F" plus an
 /// empty snapshot id). An IP whose login isn't validated gets only a short
@@ -165,6 +178,8 @@ fn exchange(net: &Net, servers: &[String], request: &[u8], done: &dyn Fn(&[u8]) 
         for addr in addrs {
             let std::net::SocketAddr::V4(v4) = addr else { continue };
             match proxy.tcp_exchange(*v4.ip(), request, done) {
+                // Closed without a word: the proxy isn't really getting through.
+                Ok(r) if r.is_empty() => last = Some(anyhow::anyhow!("no reply from directory {host} via proxy {}", proxy.name())),
                 Ok(r) => return Ok(r),
                 Err(e) => last = Some(e.context(format!("directory {host} via proxy {}", proxy.name()))),
             }
@@ -205,7 +220,11 @@ fn decompress(raw: &[u8]) -> Result<Vec<u8>> {
 }
 
 pub fn parse_list(raw: &[u8]) -> Result<Vec<Station>> {
-    let text = String::from_utf8_lossy(raw);
+    // The directory sends Windows-1252/Latin-1 text ("España" as 0xF1).
+    let text: String = match std::str::from_utf8(raw) {
+        Ok(t) => t.to_string(),
+        Err(_) => raw.iter().map(|&b| b as char).collect(),
+    };
     let body = text.strip_prefix("@@@\n").context("station list: missing @@@ header")?;
     let mut lines = body.split('\n');
     // "6617" or, for compressed lists, "6617:snapshot-id".

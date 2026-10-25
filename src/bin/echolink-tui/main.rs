@@ -1,21 +1,12 @@
 mod app;
-mod audio;
-mod config;
-mod directory;
-mod gsm;
-mod log;
-mod net;
-mod proxy;
-mod qso;
-mod rtp;
 mod ui;
 
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags};
 use crossterm::execute;
 use crossterm::terminal::supports_keyboard_enhancement;
-use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
+use echolink::session::Session;
+use echolink::{config, directory, log, net};
 use std::sync::mpsc::channel;
 use std::time::Duration;
 
@@ -71,24 +62,7 @@ fn list(query: Option<String>) -> Result<()> {
 fn run() -> Result<()> {
     let cfg = config::load()?;
     log::init();
-    log!("echolink-tui {} starting as {}", env!("CARGO_PKG_VERSION"), cfg.callsign);
-
-    let transmitting = Arc::new(AtomicBool::new(false));
-    let (mic_tx, mic_rx) = channel();
-    let audio = audio::open(mic_tx, transmitting.clone())?;
-    log!("audio: {}", audio.description);
-    let me = qso::Station {
-        callsign: cfg.callsign.clone(),
-        name: cfg.name.clone(),
-        info: format!("{}\n{}\n{}\necholink-tui {} (Linux)", cfg.callsign, cfg.name, cfg.location, env!("CARGO_PKG_VERSION")),
-        accept_incoming: cfg.accept_incoming,
-    };
-    let (udp_tx, udp_rx) = channel();
-    let net = net::Net::from_config(&cfg, udp_tx);
-    if let net::Net::Proxy(_) = net {
-        log!("using an EchoLink proxy ({})", cfg.proxy.as_deref().unwrap_or(""));
-    }
-    let handle = qso::spawn(me, audio.shared.clone(), mic_rx, transmitting, &net, udp_rx)?;
+    let session = Session::start(cfg, "echolink-tui", None)?;
 
     let mut terminal = ratatui::init();
     // Key release events (kitty keyboard protocol) allow hold-to-talk.
@@ -101,7 +75,7 @@ fn run() -> Result<()> {
         )
         .is_ok();
 
-    let mut app = app::App::new(cfg, net, audio, handle, hold_ptt);
+    let mut app = app::App::new(session, hold_ptt);
     let result = (|| -> Result<()> {
         loop {
             if !app.poll() {

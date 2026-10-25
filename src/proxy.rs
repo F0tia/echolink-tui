@@ -163,6 +163,15 @@ impl Proxy {
         &self.0.name
     }
 
+    /// Hang up on the proxy (its reader thread then marks it dead).
+    pub fn close(&self, why: &str) {
+        let mut dead = self.0.dead.lock().unwrap();
+        if dead.is_none() {
+            *dead = Some(why.to_string());
+        }
+        let _ = self.0.writer.lock().unwrap().shutdown(Shutdown::Both);
+    }
+
     /// Why the connection ended, or None while it's up.
     pub fn dead(&self) -> Option<String> {
         self.0.dead.lock().unwrap().clone()

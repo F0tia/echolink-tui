@@ -5,6 +5,23 @@ edition = "2024"
 description = "EchoLink client for the Linux terminal"
 license = "GPL-2.0-or-later"
 
+[lib]
+name = "echolink"
+path = "src/lib.rs"
+
+[features]
+default = ["gui"]
+gui = ["dep:eframe", "dep:egui_extras"]
+
+[[bin]]
+name = "echolink-tui"
+path = "src/bin/echolink-tui/main.rs"
+
+[[bin]]
+name = "echolink-gui"
+path = "src/bin/echolink-gui/main.rs"
+required-features = ["gui"]
+
 [profile.release]
 strip = true
 
@@ -13,6 +30,8 @@ anyhow = "1.0.104"
 cpal = "0.15"
 crossterm = "0.28"
 dirs = "7.0.0"
+eframe = { version = "0.31", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"], optional = true }
+egui_extras = { version = "0.31", optional = true }
 flate2 = "1.1.10"
 md5 = "0.8.1"
 ratatui = "0.29"

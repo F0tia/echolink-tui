@@ -25,6 +25,36 @@ pub struct Config {
     /// Password for a private proxy; public proxies use "PUBLIC".
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proxy_password: Option<String>,
+    /// Starred stations (callsigns), shown first in the desktop app.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub favorites: Vec<String>,
+}
+
+impl Config {
+    /// Settings for a new station, before the user fills them in.
+    pub fn blank() -> Config {
+        Config {
+            callsign: String::new(),
+            password: String::new(),
+            name: String::new(),
+            location: String::new(),
+            servers: default_servers(),
+            accept_incoming: true,
+            proxy: None,
+            proxy_password: None,
+            favorites: Vec::new(),
+        }
+    }
+}
+
+/// Write the settings, readable only by you.
+pub fn save(cfg: &Config) -> Result<()> {
+    let p = path();
+    std::fs::create_dir_all(p.parent().unwrap())?;
+    let mut f = std::fs::OpenOptions::new().write(true).create(true).truncate(true).mode(0o600).open(&p)?;
+    f.set_permissions(std::fs::Permissions::from_mode(0o600))?;
+    f.write_all(toml::to_string(cfg)?.as_bytes())?;
+    Ok(())
 }
 
 fn default_servers() -> Vec<String> {
@@ -110,12 +140,9 @@ pub fn setup() -> Result<()> {
         accept_incoming: old.as_ref().map(|c| c.accept_incoming).unwrap_or(true),
         proxy,
         proxy_password: old.as_ref().and_then(|c| c.proxy_password.clone()),
+        favorites: old.as_ref().map(|c| c.favorites.clone()).unwrap_or_default(),
     };
-    let p = path();
-    std::fs::create_dir_all(p.parent().unwrap())?;
-    let mut f = std::fs::OpenOptions::new().write(true).create(true).truncate(true).mode(0o600).open(&p)?;
-    f.set_permissions(std::fs::Permissions::from_mode(0o600))?;
-    f.write_all(toml::to_string(&cfg)?.as_bytes())?;
-    println!("\nSaved to {} (readable only by you).", p.display());
+    save(&cfg)?;
+    println!("\nSaved to {} (readable only by you).", path().display());
     Ok(())
 }

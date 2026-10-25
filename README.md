@@ -1,6 +1,12 @@
 # echolink-tui
 
-An EchoLink client for the Linux terminal, written in Rust.
+An EchoLink client for Linux, written in Rust, with two front ends on one engine:
+
+- **`echolink-gui`**: a desktop app with a big push-to-talk button, a searchable station list
+  with favorites, and a settings window. No terminal needed.
+- **`echolink-tui`**: the same station in a terminal.
+
+![Desktop app](docs/gui.png)
 
 - Browse the live EchoLink directory: repeaters, links, conferences and users, with search
 - Connect by picking a station or typing its node number
@@ -24,9 +30,27 @@ An EchoLink client for the Linux terminal, written in Rust.
 
 ```bash
 cargo build --release
+install -Dm755 target/release/echolink-gui ~/.local/bin/echolink-gui
 install -Dm755 target/release/echolink-tui ~/.local/bin/echolink-tui
-echolink-tui setup
+install -Dm644 packaging/echolink-gui.desktop ~/.local/share/applications/echolink-gui.desktop
+install -Dm644 packaging/echolink-gui.svg ~/.local/share/icons/hicolor/scalable/apps/echolink-gui.svg
 ```
+
+Then open **EchoLink** from your app menu. On first start it asks for your callsign,
+password, name, location and connection type. For the terminal version, run
+`echolink-tui setup` instead. Both use the same settings file.
+
+To build only the terminal version (no GUI libraries), use `cargo build --release --no-default-features`.
+
+### Desktop app
+
+- Double-click a station, type a node number, or press **Audio test (ECHOTEST)**.
+- Hold the big **Hold to talk** button, or hold **Space** while no text box is selected.
+- Click ☆ to make a station a favorite. Favorites sort to the top, and the ★ Favorites
+  button shows only them.
+- ⚙ Settings changes your details or connection. The app restarts itself to apply them.
+- Incoming calls and chat show a desktop notification when the window isn't focused.
+- Closing the window disconnects and logs you off the directory.
 
 `setup` asks for your callsign, name, location and password. The password is typed without
 echo and saved in `~/.config/echolink-tui/config.toml` with permissions 600. You can also
@@ -47,7 +71,7 @@ the directory and exchanges station traffic from its own public IP. Other statio
 at the proxy's address. If the proxy drops, another is picked and you're logged in again
 within about 10 seconds. Public proxies are listed at <https://www.echolink.org/proxylist.jsp>.
 
-## Use
+## Terminal version
 
 ```bash
 echolink-tui              # full-screen client

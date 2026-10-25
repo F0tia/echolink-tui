@@ -18,6 +18,12 @@ pub struct Gsm(*mut c_void);
 // A gsm state is plain heap memory owned by this handle.
 unsafe impl Send for Gsm {}
 
+impl Default for Gsm {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Gsm {
     pub fn new() -> Self {
         let g = unsafe { gsm_create() };

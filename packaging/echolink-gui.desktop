@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=EchoLink
+GenericName=Amateur radio VoIP
+Comment=Talk to EchoLink stations, repeaters and conferences
+Exec=echolink-gui
+Icon=echolink-gui
+Terminal=false
+Categories=Network;HamRadio;
+Keywords=ham;amateur;radio;echolink;repeater;voip;
+StartupWMClass=echolink-gui

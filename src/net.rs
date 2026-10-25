@@ -18,6 +18,8 @@ pub struct ProxyManager {
     region: String,
     udp: Sender<Udp>,
     current: Mutex<Option<Proxy>>,
+    /// Public proxies that failed us this run; auto mode skips them.
+    bad: Mutex<Vec<String>>,
 }
 
 #[derive(Clone)]
@@ -46,6 +48,7 @@ impl Net {
             region: cfg.location.rsplit(',').next().unwrap_or("").trim().to_string(),
             udp,
             current: Mutex::new(None),
+            bad: Mutex::new(Vec::new()),
         }))
     }
 
@@ -70,6 +73,18 @@ impl ProxyManager {
         self.current().is_none()
     }
 
+    /// Drop the current proxy (e.g. it can't reach the directory), so the
+    /// next `get()` connects to a different one.
+    pub fn abandon(&self, why: &str) {
+        if let Some(p) = self.current.lock().unwrap().take() {
+            crate::log!("abandoning proxy {}: {why}", p.name());
+            if self.fixed.is_none() {
+                self.bad.lock().unwrap().push(p.name().to_string());
+            }
+            p.close(why);
+        }
+    }
+
     /// The live connection, connecting (or reconnecting) first if needed.
     pub fn get(&self) -> Result<Proxy> {
         if let Some(p) = self.current() {
@@ -79,6 +94,8 @@ impl ProxyManager {
             Some((h, p)) => vec![(h.clone(), *p, String::new())],
             None => {
                 let mut list = proxy::public_list()?;
+                let bad = self.bad.lock().unwrap().clone();
+                list.retain(|l| !bad.contains(&format!("{}:{}", l.host, l.port)));
                 proxy::shuffle(&mut list);
                 // Nearby proxies add less audio delay: same state first, then North America.
                 list.sort_by_key(|l| (!same_region(&l.location, &self.region), !looks_north_american(&l.location)));
@@ -117,8 +134,10 @@ fn looks_north_american(location: &str) -> bool {
         "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY", "DC", "PR", "USA", "US",
         "ON", "QC", "BC", "AB", "MB", "SK", "NS", "NB", "Canada",
     ];
-    let words: Vec<&str> = location.split(|c: char| !c.is_alphanumeric()).filter(|w| !w.is_empty()).collect();
-    words.iter().any(|w| STATES.contains(w))
+    // Only the first word after a comma counts ("City, ST ..."), so free text
+    // like "permanent links OK" isn't taken for Oklahoma.
+    let codes = location.split(',').skip(1).filter_map(|part| part.split(|c: char| !c.is_alphanumeric()).find(|w| !w.is_empty()));
+    codes.into_iter().any(|w| STATES.contains(&w))
         || ["Carolina", "Virginia", "Alabama", "Georgia", "Florida", "Texas", "Tennessee", "Ohio", "California", "Maryland"]
             .iter()
             .any(|n| location.contains(n))
@@ -136,5 +155,7 @@ mod tests {
         assert!(looks_north_american("Lenoir, North Carolina"));
         assert!(!looks_north_american("Hilversum, Netherlands"));
         assert!(!looks_north_american("Amsterdam, NL, no timeout, no restrictions"));
+        assert!(!looks_north_american("EU server, no timeout, no restrictions, permanent links OK"));
+        assert!(looks_north_american("Tulsa, OK"));
     }
 }

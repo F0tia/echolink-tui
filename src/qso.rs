@@ -45,6 +45,8 @@ pub enum Event {
     Receiving(bool),
     Transmitting(bool),
     Log(String),
+    /// Another station connected to us; its callsign.
+    Incoming(String),
 }
 
 enum Input {
@@ -211,6 +213,7 @@ impl Engine {
             Event::Receiving(false) => crate::log!("RX end: {} voice packets", self.rx_packets.replace(0)),
             Event::Transmitting(true) => crate::log!("TX start"),
             Event::Transmitting(false) => crate::log!("TX end: {} voice packets sent", self.tx_packets.replace(0)),
+            Event::Incoming(_) => {}
         }
         let _ = self.events.send(e);
     }
@@ -370,6 +373,7 @@ impl Engine {
             }
             State::Idle if self.me.accept_incoming => {
                 self.emit(Event::Log(format!("Incoming connection from {callsign} ({ip}).")));
+                self.emit(Event::Incoming(callsign.clone()));
                 self.connected(ip, callsign, rest);
             }
             _ => {
