@@ -29,18 +29,18 @@ An EchoLink client for Linux, written in Rust, with two front ends on one engine
 ## Install
 
 ```bash
-cargo build --release
-install -Dm755 target/release/echolink-gui ~/.local/bin/echolink-gui
-install -Dm755 target/release/echolink-tui ~/.local/bin/echolink-tui
-install -Dm644 packaging/echolink-gui.desktop ~/.local/share/applications/echolink-gui.desktop
-install -Dm644 packaging/echolink-gui.svg ~/.local/share/icons/hicolor/scalable/apps/echolink-gui.svg
+git clone https://github.com/F0tia/echolink-tui
+cd echolink-tui
+./install.sh
 ```
 
+This builds both programs and installs them, with an app-menu entry, under `~/.local`.
 Then open **EchoLink** from your app menu. On first start it asks for your callsign,
-password, name, location and connection type. For the terminal version, run
-`echolink-tui setup` instead. Both use the same settings file.
+password, name, location and connection type, and everything after that shows your
+station. For the terminal version, run `echolink-tui setup` instead. Both use the same
+settings file.
 
-To build only the terminal version (no GUI libraries), use `cargo build --release --no-default-features`.
+To install only the terminal version (no GUI libraries), use `./install.sh --tui-only`.
 
 ### Desktop app
 
