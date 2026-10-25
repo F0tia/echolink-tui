@@ -3,7 +3,7 @@
 An EchoLink client for Linux, written in Rust, with two front ends on one engine:
 
 - **`echolink-gui`**: a desktop app with a big push-to-talk button, a searchable station list
-  with favorites, and a settings window. No terminal needed.
+  with favorites, and a settings window.
 - **`echolink-tui`**: the same station in a terminal.
 
 ![Desktop app](docs/gui.png)
