@@ -29,7 +29,7 @@ An EchoLink client for Linux, written in Rust, with two front ends on one engine
 ## Install
 
 ```bash
-git clone https://github.com/F0tia/echolink-tui
+git clone https://github.com/KI6UIT/echolink-tui
 cd echolink-tui
 ./install.sh
 ```
